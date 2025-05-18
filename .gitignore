@@ -1,0 +1,5 @@
+gifs/*/*.png
+**.h5
+**.json
+**.ipynb_checkpoints**
+**__pycache__**

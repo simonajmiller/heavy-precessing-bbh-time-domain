@@ -1,0 +1,274 @@
+# import basics
+import numpy as np
+import os
+import sys
+import tqdm
+import re
+import scipy.signal as sig
+
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+import seaborn as sns
+cp = sns.color_palette('muted')
+cp2 = sns.color_palette('pastel')
+
+'''
+DEFINE CONSTANTS
+'''
+
+# make sure all full page figs are the same width 
+DEFAULT_FIG_WIDTH = 15/1.3
+
+
+'''
+PLOTTING FUNCTIONS
+'''
+
+def add_legend(fig, handle_lw=4, **legend_kws): 
+    leg = fig.legend(**legend_kws)
+    for i, h in enumerate(legend_kws['handles']):
+        leg.get_lines()[i].set_linewidth(handle_lw)
+
+def plot_posteriors_and_waveform(
+    posteriors_dict, time_cuts, params_to_plot, true_params, ymaxes, plotting_kws, strain_data_dict, 
+    ifo='L1', unit='s', prior_dict=None, JSD_dict=None
+):
+        
+    n_rows = len(time_cuts) + 1
+    n_cols = len(params_to_plot.keys()) + 1
+    
+    # Make figure 
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(DEFAULT_FIG_WIDTH, 2.5*n_rows/1.3))
+
+    for j,c in enumerate(['full', *time_cuts]):
+                
+        ## plot waveform 
+        
+        ax = axes[j][0]
+        
+        times = transform_times(strain_data_dict['time_dict'][ifo],  true_params[f'{ifo}_time'])
+        times_M = transform_s_to_M(times, true_params['mtotal'])
+        
+        ax.plot(times_M, strain_data_dict['strain_wh'][ifo], color='silver', lw=0.75)
+        ax.plot(times_M, strain_data_dict['data_dict_wh'][ifo], color='k')
+                
+        set_limits_and_labels_of_whitened_wf_plot(ax, unit=unit)
+        
+        # shade in the different parts (pre/post cutoff)
+        if not isinstance(c, str):
+            tc = get_tcut_from_Ncycles(strain_data_dict['data_dict'][ifo], times, c)
+            tc_M = transform_s_to_M(tc, true_params['mtotal'])
+            ax.axvline(x=tc_M, color='k', ls='--', alpha=0.9)
+            ax.fill_betweenx(ax.get_ylim(), tc_M, ax.get_xlim()[1], color=cp[1], alpha=0.2, zorder=0)
+            ax.fill_betweenx(ax.get_ylim(), ax.get_xlim()[0], tc_M, color=cp[0], alpha=0.2, zorder=0)
+            
+            # add label 
+            tc_str = fr'$t_{{\rm cut}} = {np.round(tc_M,1)} \, {unit}$'
+            ax.text(0.05, 0.94, tc_str, transform=ax.transAxes, verticalalignment='top', horizontalalignment='left', 
+                   bbox=dict(facecolor='white', edgecolor='silver', boxstyle='round', alpha=0.7), fontsize=11)
+        
+        if j == n_rows - 1:
+            ax.set_xlabel(fr'$t~[{unit}]$')
+        else: 
+            ax.set_xlabel('')
+            ax.set_xticklabels([])
+        
+        ## plot posteriors 
+        
+        for i, p in enumerate(params_to_plot.keys()): 
+            
+            ax = axes[j][i+1]
+            
+            # fetch prior samples
+            if prior_dict is None:
+                prior_samps = posteriors_dict[list(posteriors_dict.keys())[0]]['prior'][p]
+            else: 
+                prior_samps = prior_dict[p]
+            
+            # get bounds and bins for histogram
+            if p=='mtotal': 
+                bounds = [210, 350]
+            else:
+                bounds = [min(prior_samps), max(prior_samps)]
+            bins = np.linspace(*bounds, 30)
+
+            ax.hist(prior_samps, **plotting_kws['prior'], bins=bins)
+            
+            for name in posteriors_dict.keys(): 
+            
+                if c=='full':
+                    
+                    # plot full histogram
+                    full_samps = posteriors_dict[name]['full'][p]
+                    ax.hist(full_samps, **plotting_kws[f'{name} full'], bins=bins)
+                    
+                    # add JSD text if desired
+                    if JSD_dict is not None:
+                        JSD_str = f'JSD = {format_in_scientific_notation(JSD_dict["full"][p])}'
+                        
+                        if p=='mtotal': 
+                            ax.text(0.97, 0.95, JSD_str, transform=ax.transAxes, verticalalignment='top',
+                                    horizontalalignment='right', fontsize=10.5)
+                        else: 
+                            ax.text(0.03, 0.95, JSD_str, transform=ax.transAxes, verticalalignment='top', 
+                                    horizontalalignment='left', fontsize=10.5)
+                        
+                
+                else:
+                    for mode in ['pre', 'post']: 
+
+                        run_key = f'{mode} {c}cycles' 
+                        
+                        # plot pre/post histograms
+                        if run_key in posteriors_dict[name].keys():
+                            samps = posteriors_dict[name][run_key][p]
+                        else: 
+                            samps = np.random.choice(prior_samps, size=5000)
+
+                        ax.hist(samps, **plotting_kws[f'{name} {mode}'], bins=bins)
+                        
+                    # add JSD text if desired
+                    if JSD_dict is not None:
+                        
+                        # pre
+                        JSD_str_pre = f"JSD = {format_in_scientific_notation(JSD_dict[f'pre {c}cycles'][p])}"
+                        color_pre = plotting_kws['maxL pre']['color']
+                        
+                        if p=='mtotal': 
+                            ax.text(0.97, 0.95, JSD_str_pre, transform=ax.transAxes, verticalalignment='top',
+                                    horizontalalignment='right', fontsize=10.5, color=color_pre)
+                        else: 
+                            ax.text(0.03, 0.95, JSD_str_pre, transform=ax.transAxes, verticalalignment='top', 
+                                    horizontalalignment='left', fontsize=10.5, color=color_pre)
+                            
+                        # post
+                        JSD_str_post = f"JSD = {format_in_scientific_notation(JSD_dict[f'post {c}cycles'][p])}"
+                        color_post = plotting_kws['maxL post']['color']
+                        
+                        if p=='mtotal': 
+                            ax.text(0.97, 0.83, JSD_str_post, transform=ax.transAxes, verticalalignment='top',
+                                    horizontalalignment='right', fontsize=10.5, color=color_post)
+                        else: 
+                            ax.text(0.03, 0.83, JSD_str_post, transform=ax.transAxes, verticalalignment='top', 
+                                    horizontalalignment='left', fontsize=10.5, color=color_post)
+
+            # injected value
+            ax.axvline(true_params[p], color=cp[3], label=r'max $\mathcal{L}$ injection: truth')     
+
+            # format axes
+            ax.set_xlim(*bounds)
+            ax.set_ylim(0, ymaxes[p])
+            if j == n_rows - 1:
+                ax.set_xlabel(fr'${params_to_plot[p]}$')
+            else: 
+                ax.set_xticklabels([])
+            if i==0:
+                ax.set_ylabel('Probability\ndensity')
+                
+            ax.grid(':', color='silver', alpha=0.5)
+
+    # space the axes accordingly
+    plt.subplots_adjust(wspace=0.4, hspace=0.1)
+    for j,c in enumerate(['full', *time_cuts]): 
+        dx = -0.03
+        x0, y0, x1, y1 = axes[j][0].get_position().bounds
+        axes[j][0].set_position([x0+dx, y0, x1, y1])
+        
+        dx = 0.04
+        x0, y0, x1, y1 = axes[j][1].get_position().bounds
+        axes[j][1].set_position([x0+dx, y0, x1, y1])
+        
+        dx = 0.02
+        x0, y0, x1, y1 = axes[j][2].get_position().bounds
+        axes[j][2].set_position([x0+dx, y0, x1, y1])
+
+
+    return fig, axes
+
+
+def set_limits_and_labels_of_whitened_wf_plot(ax, unit='s', ifo='LLO'): 
+    
+    ax.set_ylim(-2.7, 2.8)
+    if unit=='s':
+        ax.set_xlim(-0.06, 0.075)
+    elif unit=='M': 
+        ax.set_xlim(-55,65)
+    else: 
+        print('Invalid `unit` given to `set_limits_and_labels_of_whitened_wf_plot`.')
+        sys.exit()
+    ax.set_ylabel(fr'$\hat{{h}}_{{\rm {ifo}}}~[\sigma]$')
+    ax.set_xlabel(fr'$t~[{unit}]$')
+    
+    
+'''
+MISC FUNCTIONS
+'''
+
+def transform_times(times, ref_t): 
+    return np.asarray(times) - ref_t
+
+def transform_s_to_M(time_in_seconds, M): 
+    mass_scaling = 4.925491025543576e-06 * M
+    times_in_M = time_in_seconds / mass_scaling
+    return times_in_M
+
+def format_in_scientific_notation(num): 
+    A, b = f"{num:.0e}".split("e")
+    return fr"${A} \times 10^{{{int(b)}}}$"
+    
+def get_tcut_from_Ncycles(h_ifo, times, Ncycles):
+    
+    h_ifo = np.asarray(h_ifo)
+    
+    # Get indices of extrema 
+    idxs, _ = sig.find_peaks(np.abs(h_ifo), height=0)
+    
+    # Get times of extrema 
+    t_cycles_ifo = times[idxs]
+    
+    # Get the cycle we care about
+    i0 = np.argmax(np.abs(h_ifo[idxs])) # index corresponding to tcut=0 (absolute peak time)
+    n_i = 2 * Ncycles                    # one index = 1/2 cycle
+
+    # If the desired cycle cut is at a peak/trough ...
+    if isinstance(Ncycles, int) or (isinstance(Ncycles, float) and n_i.is_integer()):
+        
+        icut = i0 + int(n_i)           # index corresponding to the cycle we care about
+
+        # Get time in H1
+        tcut_ifo = t_cycles_ifo[icut]
+    
+    # Otherwise, linearly interpolate between nearest peak and trough  
+    else: 
+        # Our desired cut sits between these two times 
+        tcut_ifo_min = t_cycles_ifo[i0 + int(np.floor(n_i))]
+        tcut_ifo_max = t_cycles_ifo[i0 + int(np.ceil(n_i))]
+
+        # How far between the extrema?
+        frac_between = n_i - np.floor(n_i)
+
+        # Interpolate
+        tcut_ifo = tcut_ifo_min + frac_between*(tcut_ifo_max - tcut_ifo_min)
+    
+    return tcut_ifo
+
+def get_unique_times(strings):
+    ## get the unique cutoff times and their unit from a set of results
+
+    times = set()
+    for s in strings:
+        # Split the string to get the time part, assuming format is consistent
+        parts = s.split(' ')
+        if len(parts) > 1:  # Ignore strings that do not have time information
+            
+            # extract the unit from the string
+            time_with_unit = parts[1]       
+            unit = re.sub(r'[0-9]', '', time_with_unit).replace('.','').replace('-','')
+            
+            # extract the time value from the string
+            time_value = float(time_with_unit[:-len(unit)])
+            times.add(time_value)
+            
+    # return the sorted times and their unit
+    return sorted(times), unit
