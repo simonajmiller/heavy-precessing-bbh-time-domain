@@ -1,9 +1,7 @@
 # import basics
+import os, sys, tqdm, re, math
 import numpy as np
-import os
-import sys
-import tqdm
-import re
+from functools import reduce
 import scipy.signal as sig
 
 import matplotlib.pyplot as plt
@@ -20,6 +18,25 @@ DEFINE CONSTANTS
 # make sure all full page figs are the same width 
 DEFAULT_FIG_WIDTH = 15/1.3
 
+# parameters we want to look at and their associate plotting limits
+params = {
+    'mtotal':'M', 
+    'q':'q', 
+    'chi_eff':'\chi_{\mathrm{eff}}',
+    'chi_p':'\chi_p'
+}
+ymaxes = {
+    'mtotal':0.04, 
+    'q':4.5, 
+    'chi_eff':3,
+    'chi_p':2.5
+}
+xlims = {
+    'mtotal':[200,320], 
+    'q':[0.18, 1], 
+    'chi_eff':[-0.6, 0.6],
+    'chi_p':[0, 1]
+}
 
 '''
 PLOTTING FUNCTIONS
@@ -29,6 +46,54 @@ def add_legend(fig, handle_lw=4, **legend_kws):
     leg = fig.legend(**legend_kws)
     for i, h in enumerate(legend_kws['handles']):
         leg.get_lines()[i].set_linewidth(handle_lw)
+
+def custom_axes(nrows, ncols_per_row):
+    
+    # function to get the lowest common multiple of a list of numbers
+    def lcm_of_list(numbers):
+        def calc_lcm(a, b):
+            return abs(a * b) // math.gcd(a, b)
+        return reduce(calc_lcm, numbers)
+
+    # define over-all shape of the grid
+    lcm = lcm_of_list(ncols_per_row) # lowest common multiple of the ncols_per_row
+    shape = (nrows, lcm)
+    
+    axes = []
+    
+    # cycle through the rows
+    for row in np.arange(nrows): 
+        axes_row = []
+        
+        # get number of columns for this row 
+        ncols = ncols_per_row[row]
+        
+        # how many subplots each column takes up in this row
+        span = int(lcm/ncols)
+        
+        # cycle through the columns in this row
+        for col in np.arange(ncols): 
+            
+            # this column's position in the grid
+            position = (row, int(span*col))
+            ax = plt.subplot2grid(shape, position, colspan=span)
+            
+            axes_row.append(ax)
+        axes.append(axes_row) 
+        
+    return axes
+
+def plot_posterior(ax, posterior, xlims, ymax, param_label, ylabel=None, **kws): 
+    
+    ax.hist(posterior, **kws)
+    ax.set_xlabel(fr'${param_label}$')
+    if ylabel is None:
+        ax.set_ylabel(fr'$p({param_label})$')
+    else: 
+        ax.set_ylabel(ylabel)
+    ax.grid(':', color='silver', alpha=0.5)
+    ax.set_xlim(*xlims)
+    ax.set_ylim(0, ymax)
 
 def plot_posteriors_and_waveform(
     posteriors_dict, time_cuts, params_to_plot, true_params, ymaxes, plotting_kws, strain_data_dict, 
