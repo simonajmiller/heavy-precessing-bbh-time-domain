@@ -291,6 +291,7 @@ def set_limits_and_labels_of_whitened_wf_plot(ax, unit='s', ifo='LLO'):
     ax.set_ylabel(fr'$\hat{{h}}_{{\rm {ifo}}}~[\sigma]$')
     ax.set_xlabel(fr'$t~[{unit}]$')
     
+
     
 '''
 MISC FUNCTIONS
@@ -363,3 +364,53 @@ def get_unique_times(strings):
             
     # return the sorted times and their unit
     return sorted(times), unit
+
+def get_key(x, parameter_name): 
+    if parameter_name == 'phase': 
+        return f'phase {x}'
+    elif parameter_name == 'psi':
+        if isinstance(x, str):
+            return f'pol {x}'
+        else:
+            return f'pol {x:.2f}'
+    elif parameter_name == 'iota': 
+        return f'iota {x}'
+    
+def get_color(x, parameter_name, cmap):
+    
+    if parameter_name == 'psi':
+        p = float(x) * np.pi 
+    else: 
+        p = float(x)
+    return cmap(p/np.pi)
+
+def fit_line_to_data(x, y, grid_x=None):
+    """
+    Fits a line to the given dataset using least squares regression and returns the best fit line over a grid.
+    
+    Parameters:
+        x (array-like): Independent variable data points.
+        y (array-like): Dependent variable data points.
+        grid_x (array-like, optional): Grid of x values to evaluate the best fit line.
+                                       If None, a grid is generated based on min and max of x.
+    
+    Returns:
+        grid_x (numpy array): The x values of the grid.
+        best_fit_y (numpy array): The corresponding y values of the best fit line.
+    """
+    # Convert to numpy arrays
+    x = np.asarray(x)
+    y = np.asarray(y)
+    
+    # Compute least squares solution
+    A = np.vstack([x, np.ones(len(x))]).T
+    m, c = np.linalg.lstsq(A, y, rcond=None)[0]  # Solve for slope (m) and intercept (c)
+    
+    # Define grid if not provided
+    if grid_x is None:
+        grid_x = np.linspace(x.min(), x.max(), 100)
+    
+    # Compute best fit line
+    best_fit_y = m * grid_x + c
+    
+    return grid_x, best_fit_y
