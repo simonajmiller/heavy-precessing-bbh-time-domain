@@ -377,8 +377,7 @@ def get_key(x, parameter_name):
         return f'iota {x}'
     
 def get_color(x, parameter_name, cmap):
-    
-    if parameter_name == 'psi':
+    if parameter_name == 'psi' or parameter_name == 'pol':
         p = float(x) * np.pi 
     else: 
         p = float(x)
