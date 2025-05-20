@@ -2,7 +2,7 @@
 
 This repository hosts scripts to download and plot the data from **"Measuring spin precession from massive black holes binaries with gravitational waves: insights from time-domain signal morphology"** by Miller et. al (2025)
 
-The dataset containing posterior samples, waveforms, and other necessary plotting data is available to download from [Zenodo]([url](https://zenodo.org/records/15474960)). 
+The dataset containing posterior samples, waveforms, and other necessary plotting data is available to download from [Zenodo](https://zenodo.org/records/15474960). 
 
 ## Downloading data
 
