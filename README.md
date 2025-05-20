@@ -27,3 +27,4 @@ pip install h5ify
 pip install imageio
 pip install seaborn
 ```
+If you have any questions about the data product or how to use it, don't hesistate to reach out to smiller@caltech.edu.
