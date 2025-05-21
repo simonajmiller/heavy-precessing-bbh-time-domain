@@ -1,6 +1,4 @@
-[![Static Badge](https://img.shields.io/badge/arXiv-2505.14573-%23B31B1B)](https://arxiv.org/abs/2505.14573)
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15474960.svg)](https://doi.org/10.5281/zenodo.15474960)
+[![Static Badge](https://img.shields.io/badge/arXiv-2505.14573-%23B31B1B)](https://arxiv.org/abs/2505.14573) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15474960.svg)](https://doi.org/10.5281/zenodo.15474960)
 
 # heavy-precessing-bbh-time-domain
 
