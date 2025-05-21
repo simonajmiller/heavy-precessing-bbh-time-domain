@@ -1,6 +1,10 @@
+[![Static Badge](https://img.shields.io/badge/arXiv-2505.14573-%23B31B1B)](https://arxiv.org/abs/2505.14573)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15474960.svg)](https://doi.org/10.5281/zenodo.15474960)
+
 # heavy-precessing-bbh-time-domain
 
-This repository hosts scripts to download and plot the data from **"Measuring spin precession from massive black holes binaries with gravitational waves: insights from time-domain signal morphology"** by Miller et. al (2025)
+This repository hosts scripts to download and plot the data from **"[Measuring spin precession from massive black hole binaries with gravitational waves: insights from time-domain signal morphology](https://arxiv.org/abs/2505.14573)"** by Miller et. al (2025).
 
 The dataset containing posterior samples, waveforms, and other necessary plotting data is available to download from [Zenodo](https://zenodo.org/records/15474960). 
 
