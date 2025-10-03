@@ -123,14 +123,16 @@ def plot_posterior(ax, posterior, xlims, ymax, param_label, ylabel=None, **kws):
 
 def plot_posteriors_and_waveform(
     posteriors_dict, time_cuts, params_to_plot, true_params, ymaxes, plotting_kws, strain_data_dict, 
-    ifo='L1', unit='s', prior_dict=None, JSD_dict=None
+    ifo='L1', unit='s', prior_dict=None, JSD_dict=None, figsize=None, dxs=None, custom_xticks=None
 ):
         
     n_rows = len(time_cuts) + 1
     n_cols = len(params_to_plot.keys()) + 1
     
     # Make figure 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(DEFAULT_FIG_WIDTH, 2.5*n_rows/1.3))
+    if figsize is None: 
+        figsize = (DEFAULT_FIG_WIDTH, 2.5*n_rows/1.3)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
 
     for j,c in enumerate(['full', *time_cuts]):
                 
@@ -250,6 +252,10 @@ def plot_posteriors_and_waveform(
             # format axes
             ax.set_xlim(*bounds)
             ax.set_ylim(0, ymaxes[p])
+            
+            if custom_xticks is not None: 
+                ax.set_xticks(custom_xticks[p])
+                    
             if j == n_rows - 1:
                 ax.set_xlabel(fr'${params_to_plot[p]}$')
             else: 
@@ -261,18 +267,17 @@ def plot_posteriors_and_waveform(
 
     # space the axes accordingly
     plt.subplots_adjust(wspace=0.4, hspace=0.1)
+    
     for j,c in enumerate(['full', *time_cuts]): 
         dx = -0.03
         x0, y0, x1, y1 = axes[j][0].get_position().bounds
         axes[j][0].set_position([x0+dx, y0, x1, y1])
         
-        dx = 0.04
-        x0, y0, x1, y1 = axes[j][1].get_position().bounds
-        axes[j][1].set_position([x0+dx, y0, x1, y1])
-        
-        dx = 0.02
-        x0, y0, x1, y1 = axes[j][2].get_position().bounds
-        axes[j][2].set_position([x0+dx, y0, x1, y1])
+        if dxs is None: 
+            dxs = [0.04, 0.02]
+        for ii, dx in zip(range(1, n_cols), dxs): 
+            x0, y0, x1, y1 = axes[j][ii].get_position().bounds
+            axes[j][ii].set_position([x0+dx, y0, x1, y1])
 
 
     return fig, axes
